@@ -10,6 +10,7 @@ from ..db import get_session
 from ..models import InferenceRequest, Span
 from ..schemas import RequestDetail, RequestOut, SpanOut, TraceOut
 from ..security import Principal, allow_read
+from ..tracing import tracer
 
 router = APIRouter(prefix="/api", tags=["traffic"])
 
@@ -73,15 +74,16 @@ async def get_trace(
     session: AsyncSession = Depends(get_session),
     _: Principal = Depends(allow_read),
 ) -> TraceOut:
-    spans = list(
-        (
-            await session.execute(
-                select(Span).where(Span.trace_id == trace_id).order_by(Span.started_at)
-            )
-        ).scalars()
-    )
-    if not spans:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Trace not found or already pruned")
+    async def load_spans() -> list[Span]:
+        return list(
+            (
+                await session.execute(
+                    select(Span).where(Span.trace_id == trace_id).order_by(Span.started_at)
+                )
+            ).scalars()
+        )
+
+    spans = await load_spans()
 
     request_row = await session.scalar(
         select(InferenceRequest)
@@ -89,6 +91,21 @@ async def get_trace(
         .order_by(InferenceRequest.created_at)
         .limit(1)
     )
+
+    # Request rows are written on the request path; spans are buffered and
+    # flushed a second later. So for about a second after a call, `GET /traces`
+    # lists a trace whose detail has no spans yet — clicking the newest row in
+    # the console, or a script asserting straight after a call, would 404 on a
+    # trace that plainly exists. A trace that has not landed yet is not a
+    # missing trace, so settle the buffer and look again. The cost is paid only
+    # on the miss, never on the normal read.
+    if not spans and request_row is not None:
+        await tracer.flush()
+        session.expire_all()
+        spans = await load_spans()
+
+    if not spans:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Trace not found or already pruned")
     total = max((span.duration_ms for span in spans if span.parent_id is None), default=0.0)
     if not total:
         total = max((span.duration_ms for span in spans), default=0.0)
