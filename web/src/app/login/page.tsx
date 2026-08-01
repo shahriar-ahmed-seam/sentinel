@@ -7,10 +7,19 @@ import { Mark } from "@/components/shell";
 import { Button, Field, Notice, TextInput } from "@/components/ui";
 import { ApiError, login } from "@/lib/api";
 
+// A deployed gateway sets ADMIN_PASSWORD to something that is not the compose
+// default, so prefilling the default would hand every visitor a 401. These two
+// public vars let the hosted demo prefill its own throwaway operator account
+// without the password ever living in the repository. Unset them and the form
+// falls back to the local docker-compose credentials.
+const DEMO_EMAIL = process.env.NEXT_PUBLIC_DEMO_EMAIL ?? "admin@sentinel.dev";
+const DEMO_PASSWORD = process.env.NEXT_PUBLIC_DEMO_PASSWORD ?? "sentinel";
+const IS_HOSTED_DEMO = Boolean(process.env.NEXT_PUBLIC_DEMO_PASSWORD);
+
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@sentinel.dev");
-  const [password, setPassword] = useState("sentinel");
+  const [email, setEmail] = useState(DEMO_EMAIL);
+  const [password, setPassword] = useState(DEMO_PASSWORD);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -56,6 +65,13 @@ export default function LoginPage() {
           <Button type="submit" variant="primary" busy={busy} className="w-full">
             Sign in
           </Button>
+          {IS_HOSTED_DEMO ? (
+            <p className="text-[11px] leading-relaxed text-faint">
+              Sandbox operator credentials are prefilled — just press{" "}
+              <span className="text-muted">Sign in</span>. This instance runs on a free tier, so the
+              first request after it idles takes up to a minute to wake.
+            </p>
+          ) : null}
           <p className="text-[11px] leading-relaxed text-faint">
             Dashboards are public on this demo. Changing policy, editing the price book, minting
             keys and launching load tests need the operator token. Credentials come from{" "}

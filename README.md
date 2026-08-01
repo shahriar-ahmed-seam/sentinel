@@ -290,6 +290,8 @@ Everything has a working default — see [`.env.example`](.env.example).
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | *(empty)* | Set to mirror spans; needs `requirements-optional.txt` |
 | `SLO_TTFT_MS` | `1500` | What the dashboard grades against |
 | `NEXT_PUBLIC_API_URL` | *(empty)* | Console → gateway. Empty = same origin |
+| `NEXT_PUBLIC_DEMO_EMAIL` | *(empty)* | Prefills the sign-in form on a public demo |
+| `NEXT_PUBLIC_DEMO_PASSWORD` | *(empty)* | Same. Set it only for a sandbox instance — it ships to the browser |
 
 ---
 
