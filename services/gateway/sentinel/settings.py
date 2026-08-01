@@ -9,7 +9,23 @@ from typing import Literal
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+
+def _repo_root() -> Path:
+    """Locate a writable base directory in both layouts we ship.
+
+    Source checkout puts this file at `<repo>/services/gateway/sentinel/settings.py`;
+    the container copies the package to `/app/sentinel/settings.py`. Walking up a
+    fixed number of parents works in one and raises IndexError in the other, so
+    look for a marker instead and fall back to the package's parent.
+    """
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / ".git").is_dir() or (parent / "docker-compose.yml").is_file():
+            return parent
+    return here.parents[1]
+
+
+REPO_ROOT = _repo_root()
 
 
 class Settings(BaseSettings):
