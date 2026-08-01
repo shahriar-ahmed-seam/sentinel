@@ -13,7 +13,11 @@ trace every hop, and keep serving when an upstream breaks.
 
 [Architecture](docs/architecture.md) · [Quickstart](#quickstart) · [What it measures](#what-it-measures)
 
-<sub>Live console and hosted gateway links go here once deployed — see [Deployment](#deployment).</sub>
+**[Live console](https://sentinel-console-xi.vercel.app)**
+
+<sub>The console ships pointed at a hosted gateway. Running the gateway yourself is two
+commands — see [Quickstart](#quickstart) — and it needs no API key, because the built-in
+deterministic engine serves traffic locally with real priced tiers.</sub>
 
 </div>
 
@@ -325,6 +329,12 @@ sentinel/
 ---
 
 ## Deployment
+
+| Piece | Where | URL |
+| --- | --- | --- |
+| Console | Vercel, root dir `web/` | https://sentinel-console-xi.vercel.app |
+| Gateway | Render, Docker (`render.yaml`) | set `NEXT_PUBLIC_API_URL` to its origin |
+| Database | Neon Postgres, `eu-central-1` | `DATABASE_URL` |
 
 **Gateway → Render.** `render.yaml` is a ready blueprint: Docker build, health
 check, generated `JWT_SECRET`. Point `DATABASE_URL` at Neon or Render Postgres so
