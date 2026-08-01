@@ -1,0 +1,34 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: sentinel
+
+resources:
+  - ../../base
+
+patches:
+  - path: scale.yaml
+    target:
+      kind: Deployment
+      name: sentinel-gateway
+  - path: host.yaml
+    target:
+      kind: Ingress
+      name: sentinel
+
+configMapGenerator:
+  - name: sentinel-config
+    behavior: merge
+    literals:
+      - APP_ENV=production
+      - PUBLIC_READ=false
+      - ALLOW_ANONYMOUS_INFERENCE=false
+      - MAX_CONCURRENCY=48
+      - DEFAULT_RPM_LIMIT=1200
+      - DEFAULT_TPM_LIMIT=1200000
+
+images:
+  - name: ghcr.io/shahriar-ahmed-seam/sentinel-gateway
+    newTag: v1.0.0
+  - name: ghcr.io/shahriar-ahmed-seam/sentinel-web
+    newTag: v1.0.0

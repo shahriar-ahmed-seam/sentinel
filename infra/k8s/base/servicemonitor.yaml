@@ -1,0 +1,18 @@
+# Requires the Prometheus Operator CRDs. Remove from the kustomization if you
+# scrape via pod annotations instead.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sentinel-gateway
+  labels:
+    app.kubernetes.io/part-of: sentinel
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sentinel-gateway
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s

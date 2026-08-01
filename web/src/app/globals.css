@@ -1,0 +1,194 @@
+@import "tailwindcss";
+
+@theme {
+  --color-base: #06070a;
+  --color-panel: #0a0c11;
+  --color-raised: #0f1218;
+  --color-overlay: #131822;
+  --color-line: #1a1f29;
+  --color-line-strong: #262d3a;
+
+  --color-ink: #e8ecf2;
+  --color-muted: #8a93a5;
+  --color-faint: #596173;
+
+  /* Sentinel's accent is a signal cyan: an observability plane, not a lab. */
+  --color-signal: #22d3ee;
+  --color-signal-dim: #0e7490;
+  --color-ok: #34d399;
+  --color-warn: #fbbf24;
+  --color-crit: #fb7185;
+  --color-info: #60a5fa;
+  --color-violet: #a78bfa;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-face), ui-monospace, "SFMono-Regular", monospace;
+
+  --radius-panel: 14px;
+}
+
+* {
+  border-color: var(--color-line);
+}
+
+html {
+  color-scheme: dark;
+  scrollbar-color: #262d3a transparent;
+}
+
+body {
+  background-color: var(--color-base);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-signal) 32%, transparent);
+  color: #fff;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #222833;
+  border-radius: 999px;
+  border: 3px solid var(--color-base);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2e3542;
+}
+
+@utility panel {
+  background-color: var(--color-panel);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-panel);
+}
+
+@utility num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+@utility label-xs {
+  font-size: 10px;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+  font-weight: 500;
+}
+
+.grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.026) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.026) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.radial-fade {
+  mask-image: radial-gradient(ellipse 90% 60% at 50% 0%, #000 35%, transparent 100%);
+}
+
+/* --- motion ----------------------------------------------------------- */
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.82);
+  }
+}
+.pulse-dot {
+  animation: pulse-dot 1.9s ease-in-out infinite;
+}
+
+@keyframes sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(320%);
+  }
+}
+.sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 30%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-signal) 45%, transparent),
+    transparent
+  );
+  animation: sweep 1.5s linear infinite;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes caret {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+.caret::after {
+  content: "▌";
+  margin-left: 1px;
+  color: var(--color-signal);
+  animation: caret 1s step-end infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot,
+  .sweep::after,
+  .rise,
+  .caret::after {
+    animation: none;
+  }
+}
+
+.recharts-cartesian-axis-tick text {
+  fill: var(--color-faint);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+.recharts-cartesian-grid line {
+  stroke: rgba(255, 255, 255, 0.05);
+}
+.recharts-tooltip-wrapper:focus {
+  outline: none;
+}

@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: sentinel
+
+commonLabels:
+  app.kubernetes.io/part-of: sentinel
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - gateway.yaml
+  - web.yaml
+  - autoscaling.yaml
+  - ingress.yaml
+  - servicemonitor.yaml
+
+images:
+  - name: ghcr.io/shahriar-ahmed-seam/sentinel-gateway
+    newTag: latest
+  - name: ghcr.io/shahriar-ahmed-seam/sentinel-web
+    newTag: latest

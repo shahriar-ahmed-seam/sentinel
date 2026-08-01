@@ -1,0 +1,91 @@
+# Two options, one file. Pick the one your cluster supports.
+#
+# CPU is a poor proxy for an I/O-bound gateway: a pod waiting on an upstream is
+# busy but idle. The right signal is concurrency, which the gateway exports as
+# `sentinel_inflight_requests` — and which the built-in load test shows
+# saturating before throughput plateaus.
+
+# --- Option A: KEDA on the Prometheus gauge (preferred) --------------------
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: sentinel-gateway
+  labels:
+    app.kubernetes.io/part-of: sentinel
+spec:
+  scaleTargetRef:
+    name: sentinel-gateway
+  minReplicaCount: 2
+  maxReplicaCount: 20
+  pollingInterval: 15
+  cooldownPeriod: 180
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 15
+          policies:
+            - type: Percent
+              value: 100
+              periodSeconds: 30
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+            - type: Pods
+              value: 1
+              periodSeconds: 60
+  triggers:
+    # Target ~12 concurrent calls per replica. Derived from the load test:
+    # throughput plateaus and gateway overhead climbs past that point.
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus.observability.svc:9090
+        query: sum(sentinel_inflight_requests)
+        threshold: "12"
+    # Secondary signal: p95 time-to-first-token breaching the objective.
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus.observability.svc:9090
+        query: |
+          histogram_quantile(0.95, sum(rate(sentinel_time_to_first_token_seconds_bucket[2m])) by (le))
+        threshold: "2"
+---
+# --- Option B: plain HPA fallback (no KEDA installed) ---------------------
+# Kept as a comment so `kubectl apply -k` does not create both autoscalers for
+# the same Deployment, which they would fight over.
+#
+# apiVersion: autoscaling/v2
+# kind: HorizontalPodAutoscaler
+# metadata:
+#   name: sentinel-gateway
+# spec:
+#   scaleTargetRef:
+#     apiVersion: apps/v1
+#     kind: Deployment
+#     name: sentinel-gateway
+#   minReplicas: 2
+#   maxReplicas: 20
+#   metrics:
+#     - type: Resource
+#       resource:
+#         name: cpu
+#         target:
+#           type: Utilization
+#           averageUtilization: 65
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sentinel-autoscaling-notes
+  labels:
+    app.kubernetes.io/part-of: sentinel
+data:
+  README: |
+    Scale on sentinel_inflight_requests, not CPU.
+
+    Threshold rationale: run the built-in load test (Console -> Load tests, or
+    POST /api/loadtests) and read the stage table. Throughput stops climbing and
+    `overhead_p50` starts rising at the saturation point; set the per-replica
+    concurrency target just below it.
+
+    If KEDA is not installed, delete this file's ScaledObject and uncomment the
+    HorizontalPodAutoscaler block instead.

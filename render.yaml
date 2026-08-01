@@ -1,0 +1,45 @@
+# Render blueprint. Import the repository in the Render dashboard and it will
+# provision the gateway. A single instance runs the whole pipeline; the span
+# buffer and rate-limit buckets are per process, so scale with instances only
+# once a shared bus and counter are in place.
+services:
+  - type: web
+    name: sentinel-gateway
+    runtime: docker
+    dockerfilePath: ./services/gateway/Dockerfile
+    dockerContext: ./services/gateway
+    plan: starter
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: PORT
+        value: 8000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      # Neon / Render Postgres. Omit it and the gateway runs on SQLite, which is
+      # fine for a demo but loses history on redeploy.
+      - key: DATABASE_URL
+        sync: false
+      # Optional upstream. Without it the local engine serves all traffic.
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: PUBLIC_READ
+        value: "true"
+      - key: ALLOW_ANONYMOUS_INFERENCE
+        value: "true"
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: BOOTSTRAP_DEMO
+        value: "true"
+      - key: MAX_CONCURRENCY
+        value: "24"
+      - key: TRACE_RETENTION_HOURS
+        value: "48"
+      - key: LOG_LEVEL
+        value: INFO

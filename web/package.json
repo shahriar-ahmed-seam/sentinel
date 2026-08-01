@@ -1,0 +1,30 @@
+{
+  "name": "sentinel-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Operator console for the Sentinel model-serving gateway.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "clsx": "2.1.1",
+    "next": "16.2.12",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "recharts": "2.15.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.1.18",
+    "@types/node": "22.10.2",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "eslint": "9.17.0",
+    "eslint-config-next": "16.2.12",
+    "postcss": "8.4.49",
+    "tailwindcss": "4.1.18",
+    "typescript": "5.7.2"
+  }
+}

@@ -1,0 +1,5 @@
+# Optional: mirror spans to an OTLP/HTTP collector (Jaeger, Tempo, Grafana Alloy,
+# any OpenTelemetry Collector). Sentinel records spans locally without these and
+# degrades to local-only if the import fails at runtime.
+opentelemetry-sdk==1.29.0
+opentelemetry-exporter-otlp-proto-http==1.29.0

@@ -1,0 +1,17 @@
+[project]
+name = "sentinel-gateway"
+version = "1.0.0"
+description = "Model-serving gateway: routing, cost accounting, tracing, resilience."
+requires-python = ">=3.10"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [".venv", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4", "SIM", "RUF"]
+ignore = ["E501", "B008", "B904", "RUF012"]
+
+[tool.ruff.format]
+quote-style = "double"

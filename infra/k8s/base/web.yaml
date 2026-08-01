@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentinel-web
+  labels:
+    app.kubernetes.io/name: sentinel-web
+    app.kubernetes.io/component: console
+    app.kubernetes.io/part-of: sentinel
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sentinel-web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sentinel-web
+        app.kubernetes.io/component: console
+        app.kubernetes.io/part-of: sentinel
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          image: ghcr.io/shahriar-ahmed-seam/sentinel-web:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: API_INTERNAL_URL
+              value: http://sentinel-gateway:8000
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sentinel-web
+  labels:
+    app.kubernetes.io/name: sentinel-web
+    app.kubernetes.io/part-of: sentinel
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: sentinel-web
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http

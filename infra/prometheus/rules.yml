@@ -1,0 +1,89 @@
+groups:
+  - name: sentinel-serving
+    interval: 30s
+    rules:
+      - record: sentinel:inference_rate5m
+        expr: sum(rate(sentinel_inferences_total[5m])) by (model, provider, cache)
+
+      - record: sentinel:error_ratio5m
+        expr: |
+          sum(rate(sentinel_inferences_total{status!="ok"}[5m]))
+          /
+          clamp_min(sum(rate(sentinel_inferences_total[5m])), 1e-9)
+
+      - record: sentinel:ttft_p95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(sentinel_time_to_first_token_seconds_bucket[5m])) by (le, model)
+          )
+
+      - record: sentinel:cache_hit_ratio5m
+        expr: |
+          sum(rate(sentinel_cache_operations_total{outcome="hit"}[5m]))
+          /
+          clamp_min(sum(rate(sentinel_cache_operations_total{outcome=~"hit|miss"}[5m])), 1e-9)
+
+      - record: sentinel:spend_rate_usd_per_hour
+        expr: sum(rate(sentinel_cost_usd_total[30m])) * 3600
+
+      - record: sentinel:savings_rate_usd_per_hour
+        expr: sum(rate(sentinel_savings_usd_total[30m])) * 3600
+
+      - alert: SentinelErrorRateHigh
+        expr: sentinel:error_ratio5m > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Gateway error ratio above 5%"
+          description: "Check upstream circuits and the request log for the failing model."
+
+      - alert: SentinelTTFTBreach
+        expr: sentinel:ttft_p95 > 2.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "TTFT p95 above 2.5s for {{ $labels.model }}"
+
+      - alert: SentinelCircuitOpen
+        expr: sentinel_circuit_state == 2
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Circuit open for {{ $labels.provider }}"
+          description: "Traffic is failing over. The provider is being probed periodically."
+
+      - alert: SentinelSaturated
+        expr: |
+          sentinel_inflight_requests
+          / clamp_min(max_over_time(sentinel_inflight_requests[1h]), 1)
+          > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Gateway concurrency near its ceiling"
+          description: "Scale replicas; queueing shows up as rising gateway overhead."
+
+      - alert: SentinelSpendSpike
+        expr: sentinel:spend_rate_usd_per_hour > 5
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Spend rate above $5/hour"
+          description: "Inspect the model mix — a policy change may be routing to a premium tier."
+
+  - name: sentinel-availability
+    interval: 60s
+    rules:
+      - alert: SentinelGatewayDown
+        expr: up{job="sentinel-gateway"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Gateway is not scrapeable"

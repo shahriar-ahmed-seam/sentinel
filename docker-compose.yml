@@ -1,0 +1,130 @@
+name: sentinel
+
+# Full local stack: Postgres, the gateway, the console, Prometheus, Grafana and
+# an OpenTelemetry collector wired to Jaeger so span export is exercised for
+# real rather than assumed.
+#
+#   docker compose up --build
+#   console     http://localhost:3000
+#   gateway     http://localhost:8000/docs
+#   prometheus  http://localhost:9090
+#   grafana     http://localhost:3001   (admin / admin)
+#   jaeger      http://localhost:16686
+
+x-gateway-env: &gateway-env
+  DATABASE_URL: postgresql://sentinel:sentinel@postgres:5432/sentinel
+  APP_ENV: staging
+  JWT_SECRET: ${JWT_SECRET:-local-development-secret-change-me}
+  ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@sentinel.dev}
+  ADMIN_PASSWORD: ${ADMIN_PASSWORD:-sentinel}
+  PUBLIC_READ: "true"
+  ALLOW_ANONYMOUS_INFERENCE: "true"
+  CORS_ORIGINS: "*"
+  BOOTSTRAP_DEMO: "true"
+  LOG_LEVEL: INFO
+  # Provide any of these to add a live upstream to the routing pool.
+  DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  COMPAT_BASE_URL: ${COMPAT_BASE_URL:-}
+  COMPAT_API_KEY: ${COMPAT_API_KEY:-}
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  OTEL_SERVICE_NAME: sentinel-gateway
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sentinel
+      POSTGRES_PASSWORD: sentinel
+      POSTGRES_DB: sentinel
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinel -d sentinel"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: ./services/gateway
+    environment: *gateway-env
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./web
+      args:
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.116.1
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./infra/otel/collector.yaml:/etc/otel/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    depends_on:
+      - jaeger
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.64.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/rules.yml:/etc/prometheus/rules.yml:ro
+      - promdata:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+    ports:
+      - "9090:9090"
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  promdata:
+  grafanadata:

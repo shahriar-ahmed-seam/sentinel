@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sentinel-config
+  labels:
+    app.kubernetes.io/part-of: sentinel
+data:
+  APP_ENV: production
+  LOG_LEVEL: INFO
+  PUBLIC_READ: "false"
+  ALLOW_ANONYMOUS_INFERENCE: "false"
+  CORS_ORIGINS: "*"
+  BOOTSTRAP_DEMO: "false"
+  CACHE_ENABLED: "true"
+  CACHE_TTL_SECONDS: "3600"
+  TRACING_ENABLED: "true"
+  TRACE_RETENTION_HOURS: "72"
+  MAX_ATTEMPTS: "3"
+  MAX_CONCURRENCY: "64"
+  CIRCUIT_FAILURE_THRESHOLD: "5"
+  CIRCUIT_RESET_SECONDS: "30"
+  DEFAULT_RPM_LIMIT: "600"
+  DEFAULT_TPM_LIMIT: "600000"
+  SLO_TTFT_MS: "1500"
+  SLO_AVAILABILITY: "0.995"
+  UPSTREAM_TIMEOUT_SECONDS: "90"
+  OTEL_SERVICE_NAME: sentinel-gateway

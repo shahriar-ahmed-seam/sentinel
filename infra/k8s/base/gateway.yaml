@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentinel-gateway
+  labels:
+    app.kubernetes.io/name: sentinel-gateway
+    app.kubernetes.io/component: gateway
+    app.kubernetes.io/part-of: sentinel
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sentinel-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sentinel-gateway
+        app.kubernetes.io/component: gateway
+        app.kubernetes.io/part-of: sentinel
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: /metrics
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: sentinel-gateway
+      containers:
+        - name: gateway
+          image: ghcr.io/shahriar-ahmed-seam/sentinel-gateway:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: PORT
+              value: "8000"
+            - name: REGION
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector.observability.svc:4318
+          envFrom:
+            - configMapRef:
+                name: sentinel-config
+            - secretRef:
+                name: sentinel-secrets
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 6
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            failureThreshold: 4
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 30
+            periodSeconds: 3
+          lifecycle:
+            preStop:
+              exec:
+                # Let in-flight streams finish and the span buffer flush.
+                command: ["sh", "-c", "sleep 8"]
+          resources:
+            requests:
+              cpu: 120m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      terminationGracePeriodSeconds: 40
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sentinel-gateway
+  labels:
+    app.kubernetes.io/name: sentinel-gateway
+    app.kubernetes.io/part-of: sentinel
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: sentinel-gateway
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sentinel-gateway
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sentinel-gateway
