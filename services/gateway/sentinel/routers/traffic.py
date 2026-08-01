@@ -99,9 +99,14 @@ async def get_trace(
     # trace that plainly exists. A trace that has not landed yet is not a
     # missing trace, so settle the buffer and look again. The cost is paid only
     # on the miss, never on the normal read.
+    # No expire_all() here, however tempting. It would expire `request_row` too,
+    # and serialising it afterwards then triggers a lazy refresh — synchronous IO
+    # inside an async request, which asyncpg answers with MissingGreenlet and a
+    # 500. It is also unnecessary: the spans just committed were never in this
+    # session's identity map, and Postgres reads committed by default, so a plain
+    # re-select sees them.
     if not spans and request_row is not None:
         await tracer.flush()
-        session.expire_all()
         spans = await load_spans()
 
     if not spans:
