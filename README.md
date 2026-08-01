@@ -13,11 +13,12 @@ trace every hop, and keep serving when an upstream breaks.
 
 [Architecture](docs/architecture.md) · [Quickstart](#quickstart) · [What it measures](#what-it-measures)
 
-**[Live console](https://sentinel-console-xi.vercel.app)**
+**[Live console](https://sentinel-console-xi.vercel.app)** · **[Live gateway](https://sentinel-gateway-83i9.onrender.com/docs)** · [`/health/ready`](https://sentinel-gateway-83i9.onrender.com/health/ready)
 
-<sub>The console ships pointed at a hosted gateway. Running the gateway yourself is two
-commands — see [Quickstart](#quickstart) — and it needs no API key, because the built-in
-deterministic engine serves traffic locally with real priced tiers.</sub>
+<sub>The hosted gateway runs on a free tier against Neon Postgres, so the first request
+after idle takes ~60s to wake. It needs no API key to be useful: the built-in
+deterministic engine serves traffic with real priced tiers, and DeepSeek is wired in
+as a live upstream alongside it.</sub>
 
 </div>
 
@@ -335,12 +336,18 @@ sentinel/
 | Piece | Where | URL |
 | --- | --- | --- |
 | Console | Vercel, root dir `web/` | https://sentinel-console-xi.vercel.app |
-| Gateway | Render, Docker (`render.yaml`) | set `NEXT_PUBLIC_API_URL` to its origin |
+| Gateway | Render, Docker (`render.yaml`) | https://sentinel-gateway-83i9.onrender.com |
 | Database | Neon Postgres, `eu-central-1` | `DATABASE_URL` |
 
 **Gateway → Render.** `render.yaml` is a ready blueprint: Docker build, health
 check, generated `JWT_SECRET`. Point `DATABASE_URL` at Neon or Render Postgres so
 request history and traces survive a redeploy.
+
+Note the `-83i9` in the gateway URL. `*.onrender.com` subdomains are **globally
+unique**, so the hostname cannot be derived from the service name — `sentinel-gateway`
+was already taken by an unrelated account. Read the URL back from the create response
+instead of assuming it; an earlier build of this console was shipped pointing at a
+stranger's suspended service, which resolved and answered 503.
 
 **Console → Vercel.** Import `web/`, set `NEXT_PUBLIC_API_URL` to the gateway
 origin. `vercel.json` ships the security headers.
